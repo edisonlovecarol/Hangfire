@@ -1,5 +1,4 @@
-﻿using System;
-using Hangfire.Common;
+﻿using Hangfire.Common;
 using Hangfire.Storage;
 using Xunit;
 
@@ -17,13 +16,13 @@ namespace Hangfire.Core.Tests.Storage
                 type.AssemblyQualifiedName,
                 methodInfo.Name,
                 JobHelper.ToJson(new [] { typeof(string) }),
-                JobHelper.ToJson(new [] { "Hello" }));
+                JobHelper.ToJson(new [] { JobHelper.ToJson("Hello") }));
 
             var job = serializedData.Deserialize();
 
             Assert.Equal(type, job.Type);
             Assert.Equal(methodInfo, job.Method);
-            Assert.Equal("Hello", job.Arguments[0]);
+            Assert.Equal("Hello", job.Args[0]);
         }
 
         [Fact]
@@ -97,6 +96,34 @@ namespace Hangfire.Core.Tests.Storage
             Assert.False(job.Method.ContainsGenericParameters);
         }
 
+        [Fact]
+        public void Deserialize_HandlesMethodsDefinedInInterfaces()
+        {
+            var serializedData = new InvocationData(
+                typeof(IParent).AssemblyQualifiedName,
+                "Method",
+                JobHelper.ToJson(new string[0]),
+                JobHelper.ToJson(new string[0]));
+
+            var job = serializedData.Deserialize();
+
+            Assert.Equal(typeof(IParent), job.Type);
+        }
+
+        [Fact]
+        public void Deserialize_HandlesMethodsDefinedInParentInterfaces()
+        {
+            var serializedData = new InvocationData(
+                typeof(IChild).AssemblyQualifiedName,
+                "Method",
+                JobHelper.ToJson(new string[0]),
+                JobHelper.ToJson(new string[0]));
+
+            var job = serializedData.Deserialize();
+
+            Assert.Equal(typeof(IChild), job.Type);
+        }
+
         public static void Sample(string arg)
         {
         }
@@ -105,6 +132,15 @@ namespace Hangfire.Core.Tests.Storage
         {
             public void Method() { }
             public void Method<T2>(T1 arg1, T2 arg2) { }
+        }
+
+        public interface IParent
+        {
+            void Method();
+        }
+
+        public interface IChild : IParent
+        {
         }
     }
 }
